@@ -1,14 +1,11 @@
 {
-  "name": "discord-music-helper",
+  "name": "discord-music-helper-bot",
   "version": "1.0.0",
-  "description": "A Discord bot with slash commands for music helper utilities.",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.16.1",
-    "dotenv": "^16.4.5"
+    "discord.js": "^14.14.1"
   }
 }

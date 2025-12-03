@@ -1,104 +1,89 @@
-import {
-  Client,
-  GatewayIntentBits,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  Events
-} from "discord.js";
-import dotenv from "dotenv";
-dotenv.config();
+const { 
+    Client, 
+    GatewayIntentBits,
+    Partials,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} = require("discord.js");
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
+const TOKEN = process.env.TOKEN;
 
-// Your internal music list
+// Your saved music commands
 const musicList = [
-  { name: "Shape of You", cmd: "/play shape of you" },
-  { name: "Believer", cmd: "/play believer" },
-  { name: "Faded", cmd: "/play faded" },
-  { name: "Animals", cmd: "/play animals" }
+    { name: "Shape of You", command: "/play shape of you" },
+    { name: "Believer", command: "/play believer" },
+    { name: "Faded", command: "/play faded" }
 ];
 
-// Handle slash commands
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
+    partials: [Partials.Channel]
+});
 
-  // /help command
-  if (interaction.commandName === "help") {
-    const embed = new EmbedBuilder()
-      .setColor("#5865F2")
-      .setTitle("🎵 Bot Command List")
-      .setDescription("Here are the available commands:")
-      .addFields(
-        { name: "/search {name}", value: "Search music" },
-        { name: "/help", value: "Show this menu" }
-      );
+// Prefix command (no slash)
+const PREFIX = "m"; // Example: "m" → user types: m
 
-    return interaction.reply({ embeds: [embed], ephemeral: true });
-  }
+client.on("messageCreate", async (msg) => {
+    if (msg.author.bot) return;
 
-  // /search command
-  if (interaction.commandName === "search") {
-    const query = interaction.options.getString("name").toLowerCase();
-    const results = musicList.filter(m => m.name.toLowerCase().includes(query));
+    if (msg.content.toLowerCase() === PREFIX) {
+        
+        const embed = new EmbedBuilder()
+            .setColor("#5865F2")
+            .setTitle("🎵 Music Selector")
+            .setDescription("Choose a track and I will prepare the command for you.")
+            .setFooter({ text: "Made for your server ❤️" });
 
-    if (results.length === 0) {
-      return interaction.reply({
-        content: "No track found.",
-        ephemeral: true
-      });
+        const rows = [];
+
+        // Each row can hold up to 5 buttons
+        for (let i = 0; i < musicList.length; i += 5) {
+            const row = new ActionRowBuilder();
+            const slice = musicList.slice(i, i + 5);
+
+            slice.forEach(item => {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`music_${item.name}`)
+                        .setLabel(item.name)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            });
+
+            rows.push(row);
+        }
+
+        msg.channel.send({
+            embeds: [embed],
+            components: rows
+        });
     }
-
-    const track = results[0];
-
-    const embed = new EmbedBuilder()
-      .setColor("#ffb347")
-      .setTitle("🎶 Music Found")
-      .addFields({
-        name: "Track",
-        value: `**${track.name}**`
-      });
-
-    const btn = new ButtonBuilder()
-      .setCustomId(`sendcmd_${track.cmd}`)
-      .setLabel("Send to me")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("📩");
-
-    const row = new ActionRowBuilder().addComponents(btn);
-
-    return interaction.reply({
-      embeds: [embed],
-      components: [row],
-      ephemeral: true
-    });
-  }
 });
 
-// Handle button click
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isButton()) return;
+// When user clicks a button
+client.on("interactionCreate", async (interaction) => {
+    if (!interaction.isButton()) return;
 
-  if (interaction.customId.startsWith("sendcmd_")) {
-    const cmd = interaction.customId.replace("sendcmd_", "");
+    const id = interaction.customId;
 
-    await interaction.user.send(
-      `Here is your command:\n\`${cmd}\``
-    );
+    if (id.startsWith("music_")) {
+        const songName = id.replace("music_", "");
+        const song = musicList.find(x => x.name === songName);
 
-    return interaction.reply({
-      content: "Sent to your DM!",
-      ephemeral: true
-    });
-  }
+        if (!song) return interaction.reply({ content: "Error: Not found.", ephemeral: true });
+
+        // "prefill" message (works like suggestion)
+        return interaction.reply({
+            content: `\`\`\`\n${song.command}\n\`\`\`\nClick to copy the command above, then send it yourself.`,
+            ephemeral: true
+        });
+    }
 });
 
-client.login(process.env.TOKEN);
+client.login(TOKEN);
